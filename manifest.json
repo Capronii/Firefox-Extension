@@ -2,7 +2,7 @@
     "manifest_version": 2,
     "name": "Just Watching",
     "version": "1.0",
-    "description": "Detecta ataques e violação de privacidade em clientes web.",
+    "description": "Detect cookies in a website",
     "permissions": [
         "webRequest",
         "webRequestBlocking",

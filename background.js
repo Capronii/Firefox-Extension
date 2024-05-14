@@ -1,7 +1,7 @@
-let tabsData = {};
+let datatable = {};
 
-function resetTabData(tabId) {
-    tabsData[tabId] = {
+function resetData(tabId) {
+    datatable[tabId] = {
         thirdPartyRequests: 0,
         firstPartyCookies: 0,
         thirdPartyCookies: 0,
@@ -11,15 +11,15 @@ function resetTabData(tabId) {
 }
 
 browser.tabs.onActivated.addListener(activeInfo => {
-    if (!tabsData[activeInfo.tabId]) {
-        resetTabData(activeInfo.tabId);
+    if (!datatable[activeInfo.tabId]) {
+        resetData(activeInfo.tabId);
     }
 });
 
 browser.webRequest.onCompleted.addListener(
     details => {
         if (details.tabId !== -1) {
-            if (!tabsData[details.tabId]) resetTabData(details.tabId);
+            if (!datatable[details.tabId]) resetData(details.tabId);
 
             const requestUrl = new URL(details.url);
             const requestDomain = requestUrl.hostname;
@@ -29,7 +29,7 @@ browser.webRequest.onCompleted.addListener(
                 const tabUrl = new URL(tab.url);
                 const tabHostname = tabUrl.hostname;
                 if (requestDomain !== tabHostname) {
-                    tabsData[details.tabId].thirdPartyRequests++;
+                    datatable[details.tabId].thirdPartyRequests++;
                 }
                 countCookies(details.url, tabHostname, details.tabId);
             });
@@ -44,9 +44,9 @@ function countCookies(url, tabHostname, tabId) {
         cookies.forEach(cookie => {
             const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
             if (cookieDomain.includes(tabHostname)) {
-                tabsData[tabId].firstPartyCookies++;
+                datatable[tabId].firstPartyCookies++;
             } else {
-                tabsData[tabId].thirdPartyCookies++;
+                datatable[tabId].thirdPartyCookies++;
             }
         });
     });
@@ -66,7 +66,7 @@ function injectScript(tabId) {
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'complete') {
-        resetTabData(tabId);
+        resetData(tabId);
         injectScript(tabId);
     }
 });
@@ -75,30 +75,30 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "storageData") {
         let tabId = message.tabId;
-        tabsData[tabId].localStorageItems = message.localStorageCount;
-        tabsData[tabId].sessionStorageItems = message.sessionStorageCount;
-        tabsData[tabId].canvasFingerprintDetected = message.canvasFingerprint;
+        datatable[tabId].localStorageItems = message.localStorageCount;
+        datatable[tabId].sessionStorageItems = message.sessionStorageCount;
+        datatable[tabId].canvasFingerprintDetected = message.canvasFingerprint;
     }
 
     if (message.request === "getData") {
         const tabId = message.tabId;
         const responseData = {
-            ...tabsData[tabId],
-            score: calculatePrivacyScore(tabId)
+            ...datatable[tabId],
+            score: score_calculator(tabId)
         };
         sendResponse(responseData);
     }
 });
 
 
-function calculatePrivacyScore(tabId) {
-    const data = tabsData[tabId] || resetTabData(tabId);
-    let score = 100;  // Start with a perfect score
-    score -= data.thirdPartyRequests * 3;  // Deduct points for third-party requests
-    score -= data.thirdPartyCookies;  // Deduct points for third-party cookies
-    score -= data.localStorageItems * 2;  // Deduct points for each localStorage item
-    score -= data.sessionStorageItems;  // Deduct points for each sessionStorage item
-    return Math.max(score, 0);  // Ensure score is not negative
+function score_calculator(tabId) {
+    const data = datatable[tabId] || resetData(tabId);
+    let score = 100;  
+    score -= data.thirdPartyRequests * 3;  
+    score -= data.thirdPartyCookies;  
+    score -= data.localStorageItems * 2;  
+    score -= data.sessionStorageItems;  
+    return Math.max(score, 0);
 }
 
 
